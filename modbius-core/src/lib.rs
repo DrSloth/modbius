@@ -16,3 +16,6 @@ pub use slaveid::SlaveId;
 pub mod requests;
 
 pub mod util;
+
+mod error;
+pub use error::*;

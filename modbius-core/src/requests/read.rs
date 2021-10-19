@@ -1,4 +1,4 @@
-use crate::functions::PublicModbusFunction;
+use crate::{functions::PublicModbusFunction};
 
 macro_rules! read_req {
     ($name:ident, $fcode:expr, $entity:literal, $test:ident) => {
@@ -20,27 +20,34 @@ macro_rules! read_req {
                 Self { addr, quantity }
             }
 
-            /// Parse this request from the given modbus data 
-            pub fn from_data(data: &[u8]) -> Option<(Self, &[u8])> {
-                let (addr, data) = crate::util::read_u16(data)?;
-                let (quantity, data) = crate::util::read_u16(data)?;
-
-                Some((Self { addr, quantity }, data))
+            /// Parse this request from the given modbus data
+            /// 
+            /// The data should only consist out of the address and quantity as the slave id function
+            /// will be already read through other means.
+            pub fn from_data(
+                data: &[u8],
+            ) -> Result<(Self, &[u8]), $crate::ModbusSerializationError> {
+                if data.len() < 4 {
+                    Err($crate::ModbusSerializationError::UnexpectedEOF {expected: 4, got: data.len()})
+                } else {
+                    Ok(unsafe { Self::from_data_unchecked(data) })
+                }
             }
 
-            /// Parse this request from the given modbus data without bounds checks
+            /// Parse this request from the given modbus data without bounds checks.
+            /// 
+            /// The data should only consist out of the address and quantity as the slave id function
+            /// will be already read through other means.
             /// 
             /// # Safety
             /// This function causes undefined behavior if the len of data is smaller than 4
             pub unsafe fn from_data_unchecked(data: &[u8]) -> (Self, &[u8]) {
-                let (addr, data) = crate::util::read_u16_unchecked(data);
-                let (quantity, data) = crate::util::read_u16_unchecked(data);
-
-                (Self { addr, quantity }, data)
+                let (addr, quantity, data) = $crate::util::read_addr_quantity_unchecked(data);
+                (Self::new(addr, quantity), data)
             }
 
             /// Create modbus data of the correct size from this request
-            /// 
+            ///
             /// The format of the array will be [addrhi, addrlo, quantityhi, quantitylo] in big endian
             pub fn into_data(self) -> [u8; 4] {
                 let addr = self.addr.to_be_bytes();
@@ -49,33 +56,28 @@ macro_rules! read_req {
             }
 
             /// Write this request to the slice as modbus data
-            pub fn write_to_slice(self, data: &mut [u8]) {
-                //TODO return Result
-                let addr = self.addr.to_be_bytes();
-                if let Some(addr_bytes) = data.get_mut(0..2) {
-                    addr_bytes[0] = addr[0];
-                    addr_bytes[1] = addr[1];
+            pub fn write_to_slice(
+                self,
+                out: &mut [u8],
+            ) -> Result<(), $crate::ModbusSerializationError> {
+                if out.len() < 5 {
+                    return Err($crate::ModbusSerializationError::InsufficientBuffer {
+                        expected: 5,
+                        got: out.len()
+                    })
                 }
 
-                let quantity = self.quantity.to_be_bytes();
-                if let Some(quantity_bytes) = data.get_mut(2..4) {
-                    quantity_bytes[0] = quantity[0];
-                    quantity_bytes[1] = quantity[1];
-                }
+                unsafe {self.write_to_slice_unchecked(out)};
+                Ok(())
             }
 
-            /// Write this request to the slice as modbus data without bounds checking. 
-            /// 
+            /// Write this request to the slice as modbus data without bounds checking.
+            ///
             /// # Safety
-            /// This function invokes undefined behavior if the len of data is less than 4 
-            pub unsafe fn write_to_slice_unchecked(self, data: &mut [u8]) {
-                let addr = self.addr.to_be_bytes();
-                *data.get_unchecked_mut(0) = addr[0];
-                *data.get_unchecked_mut(1) = addr[1];
-
-                let quantity = self.quantity.to_be_bytes();
-                *data.get_unchecked_mut(2) = quantity[0];
-                *data.get_unchecked_mut(3) = quantity[1];
+            /// This function invokes undefined behavior if the len of data is less than 5
+            pub unsafe fn write_to_slice_unchecked(self, out: &mut [u8]) {
+                *out.get_unchecked_mut(0) = Self::MODBUS_FUNCTION_CODE as u8;
+                $crate::util::write_addr_quantity_unchecked(self.addr, self.quantity, out.get_unchecked_mut(1..))
             }
         }
 
@@ -197,33 +199,32 @@ macro_rules! read_req {
                 assert!(tail.is_empty());
             }
 
-
             #[test]
             fn from_data_fail0() {
                 let data = [255, 255];
                 let res = $name::from_data(&data);
-                assert!(res.is_none())
+                assert_eq!(res.unwrap_err(), $crate::ModbusSerializationError::UnexpectedEOF {expected: 4, got: 2});
             }
 
             #[test]
             fn from_data_fail1() {
                 let data = [];
                 let res = $name::from_data(&data);
-                assert!(res.is_none())
+                assert_eq!(res.unwrap_err(), $crate::ModbusSerializationError::UnexpectedEOF {expected: 4, got: 0});
             }
 
             #[test]
             fn from_data_fail2() {
                 let data = [255, 255, 0];
                 let res = $name::from_data(&data);
-                assert!(res.is_none())
+                assert_eq!(res.unwrap_err(), $crate::ModbusSerializationError::UnexpectedEOF {expected: 4, got: 3});
             }
 
             #[test]
             fn from_data_tail0() {
                 let data = [255, 255, 255, 255, 1, 2, 3, 4];
                 let (req, tail) = $name::from_data(&data).unwrap();
-             
+
                 assert_eq!(req.addr, u16::MAX);
                 assert_eq!(req.quantity, u16::MAX);
                 assert_eq!(tail, &[1, 2, 3, 4]);
@@ -233,7 +234,7 @@ macro_rules! read_req {
             fn from_data_tail1() {
                 let data = [255, 255, 255, 255, 1];
                 let (req, tail) = $name::from_data(&data).unwrap();
-             
+
                 assert_eq!(req.addr, u16::MAX);
                 assert_eq!(req.quantity, u16::MAX);
                 assert_eq!(tail, &[1]);
@@ -243,7 +244,7 @@ macro_rules! read_req {
             fn from_data_unchecked_tail0() {
                 let data = [255, 255, 255, 255, 1, 2, 3, 4];
                 let (req, tail) = unsafe { $name::from_data_unchecked(&data) };
-             
+
                 assert_eq!(req.addr, u16::MAX);
                 assert_eq!(req.quantity, u16::MAX);
                 assert_eq!(tail, &[1, 2, 3, 4]);
@@ -253,7 +254,7 @@ macro_rules! read_req {
             fn from_data_unchecked_tail1() {
                 let data = [255, 255, 255, 255, 1];
                 let (req, tail) = unsafe { $name::from_data_unchecked(&data) };
-             
+
                 assert_eq!(req.addr, u16::MAX);
                 assert_eq!(req.quantity, u16::MAX);
                 assert_eq!(tail, &[1]);
@@ -263,7 +264,7 @@ macro_rules! read_req {
             fn from_data_from_data_unecked() {
                 let data = [255, 255, 255, 255];
                 let (req_unchecked, tail_unchecked) = unsafe { $name::from_data_unchecked(&data) };
-                let (req, tail) = unsafe { $name::from_data_unchecked(&data) };
+                let (req, tail) = $name::from_data(&data).unwrap();
 
                 assert_eq!(req.addr, u16::MAX);
                 assert_eq!(req.quantity, u16::MAX);
@@ -273,15 +274,36 @@ macro_rules! read_req {
 
                 assert_eq!(req.addr, req_unchecked.addr);
                 assert_eq!(req.quantity, req_unchecked.quantity);
-                
+
                 assert!(tail.is_empty());
                 assert_eq!(tail, tail_unchecked);
+            }
+
+            #[test]
+            fn into_data0() {
+                //let data = [255, 255, 255, 255];
+                //let req = 
             }
         }
     };
 }
 
 read_req!(ReadCoils, PublicModbusFunction::ReadCoils, "Coils", coils);
-read_req!(ReadDiscreteInputs, PublicModbusFunction::ReadDiscreteInputs, "DiscreteInputs", discrete_inputs);
-read_req!(ReadHoldingRegisters, PublicModbusFunction::ReadHoldingRegisters, "HoldingRegisters", holding_registers);
-read_req!(ReadInputRegisters, PublicModbusFunction::ReadInputRegisters, "InputRegisters", input_registers);
+read_req!(
+    ReadDiscreteInputs,
+    PublicModbusFunction::ReadDiscreteInputs,
+    "DiscreteInputs",
+    discrete_inputs
+);
+read_req!(
+    ReadHoldingRegisters,
+    PublicModbusFunction::ReadHoldingRegisters,
+    "HoldingRegisters",
+    holding_registers
+);
+read_req!(
+    ReadInputRegisters,
+    PublicModbusFunction::ReadInputRegisters,
+    "InputRegisters",
+    input_registers
+);
