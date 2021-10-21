@@ -1,4 +1,4 @@
-use core::{convert::TryFrom, ops::Not};
+use core::ops::Not;
 
 use crate::ModbusSerializationError;
 
@@ -30,7 +30,7 @@ impl TryFrom<u16> for BitState {
         match value {
             0 => Ok(Self::Off),
             0xFF00 => Ok(Self::On),
-            _ => Err(ModbusSerializationError::InvalidValue)
+            _ => Err(ModbusSerializationError::Invalid)
         }
     }
 }
@@ -120,18 +120,18 @@ mod bitstate_test {
     #[test]
     fn from_u16_invalid0() {
         let invalid = BitState::try_from(0xF0FF).unwrap_err();
-        assert_eq!(invalid, ModbusSerializationError::InvalidValue);
+        assert_eq!(invalid, ModbusSerializationError::Invalid);
     }
 
     #[test]
     fn from_u16_invalid1() {
         let invalid = BitState::try_from(0xFFFF).unwrap_err();
-        assert_eq!(invalid, ModbusSerializationError::InvalidValue);
+        assert_eq!(invalid, ModbusSerializationError::Invalid);
     }
 
     #[test]
     fn from_u16_invalid2() {
         let invalid = BitState::try_from(1).unwrap_err();
-        assert_eq!(invalid, ModbusSerializationError::InvalidValue);
+        assert_eq!(invalid, ModbusSerializationError::Invalid);
     }
 }

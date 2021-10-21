@@ -156,7 +156,7 @@ public_modbus_function! {
     GetCommEventCounter = 11,
     GetCommEventLog = 12,
     WriteMultipleCoils = 15,
-    WriteMultipleregisters = 16,
+    WriteMultipleRegisters = 16,
     ReportServerID = 17,
     ReadFileRecord = 20,
     WriteFileRecord = 21,

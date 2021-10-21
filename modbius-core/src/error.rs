@@ -15,6 +15,23 @@ pub enum ModbusSerializationError {
         /// The size of the given output buffer
         got: usize
     },
-    /// An invalid value was encountered that can not be accepted.
-    InvalidValue,
+    /// An invalid value or invalid data was encountered that can not be accepted.
+    /// 
+    /// One example would be a value other than 0xFF00 or 0x0000 as coil value 
+    /// or trying to write 0 coils/registers
+    Invalid,
+    /// The given value would exceed the maximum allowed size of a modbus request or request field
+    TooLarge,
+    /// The given data had values that logically opposed itself.
+    /// 
+    /// For instance if data states that `N` bytes will follow but less data follows
+    Ambivalent,
+    /// The given data would overflow a modbus field or is logically incoherent because of something similiar
+    /// 
+    /// In contrast to [ModbusSerializationError::TooLarge] this doesn't mean that a field contains too much data but rather 
+    /// that multiple fields in combination would break some numeric invariant. 
+    /// 
+    /// For instance if a "write multiple" request
+    /// would write over the 0xFFFF adddress boundary (e.g. giving addr=0xFFFE but 50 registers to write)
+    Overflow,
 }
