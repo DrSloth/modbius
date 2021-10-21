@@ -1,6 +1,9 @@
 use crate::functions::PublicModbusFunction;
 
-// This could have been a
+// This could have been a trait but extracting the behavior into a trait doesn't make sense. They wouldn't
+// make sense with generics or trait objects because they are completely different requests in theory.
+// Also it is inacceptable to require all users to include a (definitely weirdly named) 
+// trait in order to work with these request structures.
 macro_rules! read_req {
     ($name:ident, $fcode:expr, $entity:literal, $test:ident) => {
         #[doc=concat!("The request structure to read ", $entity)]

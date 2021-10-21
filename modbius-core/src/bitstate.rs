@@ -12,6 +12,12 @@ pub enum BitState {
     On = 1,
 }
 
+impl BitState {
+    pub fn is_on(self) -> bool {
+        self.into()
+    }
+}
+
 impl Default for BitState {
     fn default() -> BitState {
         BitState::Off
