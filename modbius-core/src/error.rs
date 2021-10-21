@@ -14,5 +14,7 @@ pub enum ModbusSerializationError {
         expected: usize,
         /// The size of the given output buffer
         got: usize
-    }
+    },
+    /// An invalid value was encountered that can not be accepted.
+    InvalidValue,
 }
