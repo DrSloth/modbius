@@ -1,10 +1,11 @@
 use crate::functions::PublicModbusFunction;
 
+// This could have been a
 macro_rules! read_req {
     ($name:ident, $fcode:expr, $entity:literal, $test:ident) => {
         #[doc=concat!("The request structure to read ", $entity)]
         #[doc=concat!("\n")]
-        /// This structure may be used to parse and build modbus data to read quantity entities starting from addr.
+        /// used to parse and build modbus data to read quantity entities starting from addr.
         #[derive(Debug, Clone, Copy, Hash, Default, PartialEq, Eq, PartialOrd, Ord)]
         pub struct $name {
             pub addr: u16,
@@ -45,17 +46,19 @@ macro_rules! read_req {
             /// # Safety
             /// This function causes undefined behavior if the len of data is smaller than 4
             pub unsafe fn from_data_unchecked(data: &[u8]) -> (Self, &[u8]) {
-                let (addr, quantity, data) = $crate::util::read_addr_quantity_unchecked(data);
+                let (addr, data) = $crate::util::read_u16_unchecked(data);
+                let (quantity, data) = $crate::util::read_u16_unchecked(data);
+
                 (Self::new(addr, quantity), data)
             }
 
             /// Create modbus data of the correct size from this request
             ///
             /// The format of the array will be [addrhi, addrlo, quantityhi, quantitylo] in big endian
-            pub fn into_data(self) -> [u8; 4] {
+            pub fn into_data(self) -> [u8; 5] {
                 let addr = self.addr.to_be_bytes();
                 let quantity = self.quantity.to_be_bytes();
-                [addr[0], addr[1], quantity[0], quantity[1]]
+                [Self::MODBUS_FUNCTION_CODE as u8, addr[0], addr[1], quantity[0], quantity[1]]
             }
 
             /// Write this request to the slice as modbus data
@@ -79,12 +82,7 @@ macro_rules! read_req {
             /// # Safety
             /// This function invokes undefined behavior if the len of data is less than 5
             pub unsafe fn write_to_slice_unchecked(self, out: &mut [u8]) {
-                *out.get_unchecked_mut(0) = Self::MODBUS_FUNCTION_CODE as u8;
-                $crate::util::write_addr_quantity_unchecked(
-                    self.addr,
-                    self.quantity,
-                    out.get_unchecked_mut(1..),
-                )
+                out.get_unchecked_mut(0..5).copy_from_slice(&self.into_data());
             }
         }
 
@@ -310,7 +308,7 @@ macro_rules! read_req {
                 let (req, _tail) = $name::from_data(&data).unwrap();
                 assert_eq!(req.addr, u16::MAX);
                 assert_eq!(req.quantity, u16::MAX);
-                assert_eq!(data, req.into_data());
+                assert_eq!(data, req.into_data()[1..]);
             }
 
             #[test]
@@ -319,7 +317,7 @@ macro_rules! read_req {
                 let (req, _tail) = $name::from_data(&data).unwrap();
                 assert_eq!(req.addr, 255);
                 assert_eq!(req.quantity, 255);
-                assert_eq!(data, req.into_data());
+                assert_eq!(data, req.into_data()[1..]);
             }
 
             #[test]
@@ -327,7 +325,7 @@ macro_rules! read_req {
                 let req = $name::new(10, 20);
                 assert_eq!(req.addr, 10);
                 assert_eq!(req.quantity, 20);
-                assert_eq!(req.into_data(), [0, 10, 0, 20]);
+                assert_eq!([0, 10, 0, 20], req.into_data()[1..]);
             }
 
             #[test]

@@ -62,7 +62,7 @@ mod read_u16_test {
         let (_w8, _tail) = read_u16(&[]).unwrap();
     }
 }
-
+/* 
 /// Interprets the data as an address and a quantity. They are returned in this order.
 /// The data left in the slice is returned too. 
 /// 
@@ -111,4 +111,4 @@ pub unsafe fn write_addr_quantity_unchecked(addr: u16, quantity: u16, out: &mut 
     let quantity_bytes = quantity.to_be_bytes();
     *out.get_unchecked_mut(2) = quantity_bytes[0];
     *out.get_unchecked_mut(3) = quantity_bytes[1];
-}
+} */

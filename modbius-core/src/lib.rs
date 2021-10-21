@@ -10,6 +10,9 @@
 pub mod functions;
 pub use functions::{ModbusFunction, PublicModbusFunction};
 
+pub mod bitstate;
+pub use bitstate::BitState; 
+
 pub mod slaveid;
 pub use slaveid::SlaveId;
 
@@ -19,3 +22,4 @@ pub mod util;
 
 mod error;
 pub use error::*;
+
