@@ -1,2 +1,2 @@
 [workspace]
-members = ["modbius-core"]
+members = ["modbius-core", "modbius"]

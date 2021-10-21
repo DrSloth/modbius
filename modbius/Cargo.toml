@@ -1,0 +1,10 @@
+[package]
+name = "modbius-traits"
+version = "0.1.0"
+edition = "2018"
+repository = "https://github.com/DrSloth/modbius"
+home = "https://github.com/DrSloth/modbius"
+keywords = ["fieldbus", "modbus", "iot", "nostd", "modbius"]
+description = ""
+license = "MIT"
+readme = "README.md"
