@@ -1,4 +1,4 @@
-use crate::{functions::PublicModbusFunction};
+use crate::functions::PublicModbusFunction;
 
 macro_rules! read_req {
     ($name:ident, $fcode:expr, $entity:literal, $test:ident) => {
@@ -21,24 +21,27 @@ macro_rules! read_req {
             }
 
             /// Parse this request from the given modbus data
-            /// 
+            ///
             /// The data should only consist out of the address and quantity as the slave id function
             /// will be already read through other means.
             pub fn from_data(
                 data: &[u8],
             ) -> Result<(Self, &[u8]), $crate::ModbusSerializationError> {
                 if data.len() < 4 {
-                    Err($crate::ModbusSerializationError::UnexpectedEOF {expected: 4, got: data.len()})
+                    Err($crate::ModbusSerializationError::UnexpectedEOF {
+                        expected: 4,
+                        got: data.len(),
+                    })
                 } else {
                     Ok(unsafe { Self::from_data_unchecked(data) })
                 }
             }
 
             /// Parse this request from the given modbus data without bounds checks.
-            /// 
+            ///
             /// The data should only consist out of the address and quantity as the slave id function
             /// will be already read through other means.
-            /// 
+            ///
             /// # Safety
             /// This function causes undefined behavior if the len of data is smaller than 4
             pub unsafe fn from_data_unchecked(data: &[u8]) -> (Self, &[u8]) {
@@ -63,11 +66,11 @@ macro_rules! read_req {
                 if out.len() < 5 {
                     return Err($crate::ModbusSerializationError::InsufficientBuffer {
                         expected: 5,
-                        got: out.len()
-                    })
+                        got: out.len(),
+                    });
                 }
 
-                unsafe {self.write_to_slice_unchecked(out)};
+                unsafe { self.write_to_slice_unchecked(out) };
                 Ok(())
             }
 
@@ -77,7 +80,11 @@ macro_rules! read_req {
             /// This function invokes undefined behavior if the len of data is less than 5
             pub unsafe fn write_to_slice_unchecked(self, out: &mut [u8]) {
                 *out.get_unchecked_mut(0) = Self::MODBUS_FUNCTION_CODE as u8;
-                $crate::util::write_addr_quantity_unchecked(self.addr, self.quantity, out.get_unchecked_mut(1..))
+                $crate::util::write_addr_quantity_unchecked(
+                    self.addr,
+                    self.quantity,
+                    out.get_unchecked_mut(1..),
+                )
             }
         }
 
@@ -203,21 +210,39 @@ macro_rules! read_req {
             fn from_data_fail0() {
                 let data = [255, 255];
                 let res = $name::from_data(&data);
-                assert_eq!(res.unwrap_err(), $crate::ModbusSerializationError::UnexpectedEOF {expected: 4, got: 2});
+                assert_eq!(
+                    res.unwrap_err(),
+                    $crate::ModbusSerializationError::UnexpectedEOF {
+                        expected: 4,
+                        got: 2
+                    }
+                );
             }
 
             #[test]
             fn from_data_fail1() {
                 let data = [];
                 let res = $name::from_data(&data);
-                assert_eq!(res.unwrap_err(), $crate::ModbusSerializationError::UnexpectedEOF {expected: 4, got: 0});
+                assert_eq!(
+                    res.unwrap_err(),
+                    $crate::ModbusSerializationError::UnexpectedEOF {
+                        expected: 4,
+                        got: 0
+                    }
+                );
             }
 
             #[test]
             fn from_data_fail2() {
                 let data = [255, 255, 0];
                 let res = $name::from_data(&data);
-                assert_eq!(res.unwrap_err(), $crate::ModbusSerializationError::UnexpectedEOF {expected: 4, got: 3});
+                assert_eq!(
+                    res.unwrap_err(),
+                    $crate::ModbusSerializationError::UnexpectedEOF {
+                        expected: 4,
+                        got: 3
+                    }
+                );
             }
 
             #[test]
@@ -261,7 +286,7 @@ macro_rules! read_req {
             }
 
             #[test]
-            fn from_data_from_data_unecked() {
+            fn from_data_eq_from_data_unecked() {
                 let data = [255, 255, 255, 255];
                 let (req_unchecked, tail_unchecked) = unsafe { $name::from_data_unchecked(&data) };
                 let (req, tail) = $name::from_data(&data).unwrap();
@@ -281,8 +306,92 @@ macro_rules! read_req {
 
             #[test]
             fn into_data0() {
-                //let data = [255, 255, 255, 255];
-                //let req = 
+                let data = [255, 255, 255, 255];
+                let (req, _tail) = $name::from_data(&data).unwrap();
+                assert_eq!(req.addr, u16::MAX);
+                assert_eq!(req.quantity, u16::MAX);
+                assert_eq!(data, req.into_data());
+            }
+
+            #[test]
+            fn into_data1() {
+                let data = [0, 255, 0, 255];
+                let (req, _tail) = $name::from_data(&data).unwrap();
+                assert_eq!(req.addr, 255);
+                assert_eq!(req.quantity, 255);
+                assert_eq!(data, req.into_data());
+            }
+
+            #[test]
+            fn into_data2() {
+                let req = $name::new(10, 20);
+                assert_eq!(req.addr, 10);
+                assert_eq!(req.quantity, 20);
+                assert_eq!(req.into_data(), [0, 10, 0, 20]);
+            }
+
+            #[test]
+            fn write_to_slice0() {
+                let req = $name::new(10, 20);
+                let mut slice = [0; 5];
+
+                req.write_to_slice(&mut slice).unwrap();
+                assert_eq!(slice, [$name::MODBUS_FUNCTION_CODE as u8, 0, 10, 0, 20]);
+            }
+
+            #[test]
+            fn write_to_slice1() {
+                let req = $name::new(256, 255);
+                let mut slice = [0, 1, 2, 3, 4];
+
+                req.write_to_slice(&mut slice).unwrap();
+                assert_eq!(slice, [$name::MODBUS_FUNCTION_CODE as u8, 1, 0, 0, 255]);
+            }
+
+            #[test]
+            fn write_to_slice2() {
+                let req = $name::new(u16::MAX, u16::MAX);
+                let mut slice = [1, 1, 1, 1, 1, 0, 0, 0, 0];
+
+                req.write_to_slice(&mut slice).unwrap();
+                assert_eq!(
+                    slice,
+                    [$name::MODBUS_FUNCTION_CODE as u8, 255, 255, 255, 255, 0, 0, 0, 0]
+                );
+            }
+
+            #[test]
+            fn write_to_slice_fail0() {
+                let req = $name::new(u16::MAX, u16::MAX);
+                let mut slice = [1, 1, 1, 1];
+
+                let err = req.write_to_slice(&mut slice).unwrap_err();
+
+                assert_eq!(err, $crate::ModbusSerializationError::InsufficientBuffer { got: 4, expected: 5 });
+            }
+
+            #[test]
+            fn write_to_slice_fail1() {
+                let req = $name::new(u16::MAX, u16::MAX);
+                let mut slice = [];
+
+                let err = req.write_to_slice(&mut slice).unwrap_err();
+
+                assert_eq!(err, $crate::ModbusSerializationError::InsufficientBuffer { got: 0, expected: 5 });
+            }
+
+            #[test]
+            fn write_to_slice_eq_write_to_slice_unchecked() {
+                let req = $name::new(u16::MAX, u16::MAX);
+                let mut slice = [1,2,3,4,5];
+                let mut slice_unchecked = [1,2,3,4,5];
+
+                req.write_to_slice(&mut slice).unwrap();
+                unsafe { req.write_to_slice_unchecked(&mut slice_unchecked) };
+
+                assert_eq!(slice, slice_unchecked);
+                assert_eq!(slice, [$name::MODBUS_FUNCTION_CODE as u8, 255, 255, 255, 255]);
+                assert_eq!(slice, [$name::MODBUS_FUNCTION_CODE as u8, 255, 255, 255, 255]);
             }
         }
     };
