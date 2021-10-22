@@ -13,9 +13,11 @@
 pub mod functions;
 pub mod bitstate;
 pub mod slaveid;
-pub mod requests;
+pub mod write;
+pub mod read;
 pub mod util;
 pub mod registerslice;
+
 mod error;
 
 pub use functions::{ModbusFunction, PublicModbusFunction};

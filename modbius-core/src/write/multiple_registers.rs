@@ -176,14 +176,21 @@ mod test_write_registers {
         assert_eq!(err, ModbusSerializationError::Overflow);
     }
 
-    /* #[test]
+    #[test]
     fn create_new_eq_create_new_unchecked() {
         let regs = RegisterSlice::new(&[0,1,2,3]).unwrap();
         let req = WriteMultipleRegisters::new(10, regs).unwrap();
+        // For every valid data unchecked versions should deliver the same value as checked versions
+        let req_unchecked = unsafe { WriteMultipleRegisters::new_unchecked(10, regs) };
 
         assert_eq!(req.addr(), 10);
         assert_eq!(req.registers().bytes(), &[0,1,2,3]);
-    } */
+
+        assert_eq!(req_unchecked.addr(), 10);
+        assert_eq!(req_unchecked.registers().bytes(), &[0,1,2,3]);
+        
+        assert_eq!(req, req_unchecked);
+    }
 
     #[test]
     fn from_data_spec() {
@@ -320,4 +327,6 @@ mod test_write_registers {
 
         assert_eq!(err, ModbusSerializationError::InsufficientBuffer {expected: req.data_size(), got: 9})
     }
+
+    //TODO check correctness of unchecked versions with correct data
 }

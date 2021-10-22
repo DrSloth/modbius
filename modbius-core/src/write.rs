@@ -1,6 +1,6 @@
 /// Module for write single family of requests.
 mod single;
-mod multiple;
+mod multiple_registers;
 
 pub use single::*;
-pub use multiple::*;
+pub use multiple_registers::*;
